@@ -4,6 +4,11 @@ function FCMPlugin() {
 	console.log("FCMPlugin.js: is created");
 }
 
+// CHECK IF GOOGLE PLAY SERVICES IS ALLOWED //
+FCMPlugin.prototype.isAllowed = function( success, error ){
+	exec(success, error, "FCMPlugin", 'isAllowed', []);
+}
+
 // SUBSCRIBE TO TOPIC //
 FCMPlugin.prototype.subscribeToTopic = function( topic, success, error ){
 	exec(success, error, "FCMPlugin", 'subscribeToTopic', [topic]);

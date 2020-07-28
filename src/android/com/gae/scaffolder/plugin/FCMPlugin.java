@@ -20,10 +20,16 @@ import org.apache.cordova.CordovaWebView;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.util.Map;
 
+
+import android.app.Activity;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+
+
 public class FCMPlugin extends CordovaPlugin {
+    private Activity activity;
     public static CordovaWebView gWebView;
     public static String notificationCallBack = "FCMPlugin.onNotificationReceived";
     public static String tokenRefreshCallBack = "FCMPlugin.onTokenRefreshReceived";
@@ -85,6 +91,20 @@ public class FCMPlugin extends CordovaPlugin {
             // READY //
             if (action.equals("ready")) {
                 callbackContext.success();
+            }
+            else if (action.equals("isAllowed")) {
+                activity = this.cordova.getActivity();
+                cordova.getThreadPool().execute(new Runnable() {
+                    public void run() {
+                        try {
+                            boolean isAllowed = isAllowed();
+                            String pluginResult = isAllowed ==true? "TRUE":"FALSE";
+                            callbackContext.success(pluginResult);
+                        } catch (Exception e) {
+                            callbackContext.error(e.getMessage());
+                        }
+                    }
+                });
             }
             // GET TOKEN //
             else if (action.equals("getToken")) {
@@ -155,6 +175,20 @@ public class FCMPlugin extends CordovaPlugin {
         this.registerNotification(callback);
     }
 
+    public boolean isAllowed(){
+        GoogleApiAvailability googleApiAvailability = GoogleApiAvailability.getInstance();
+        int status = googleApiAvailability.isGooglePlayServicesAvailable(activity);
+        if(status != ConnectionResult.SUCCESS) {
+          if (googleApiAvailability.isUserResolvableError(status)) {
+            googleApiAvailability.getErrorDialog(activity, status, 2404).show();
+          }
+          System.out.println(TAG + " isGooglePlayServicesAvailable CALLED RETURNING FALSE!!!");
+          return false;
+        }
+        System.out.println(TAG + " isGooglePlayServicesAvailable CALLED RETURNING TRUE!!!");
+        return true;
+    }
+
     public void getToken(final TokenListeners callback) {
         try {
 			FirebaseInstanceId.getInstance().getInstanceId().addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
@@ -165,7 +199,6 @@ public class FCMPlugin extends CordovaPlugin {
                         callback.error(task.getException().getMessage());
                         return;
                     }
-
                     // Get new Instance ID token
                     String newToken = task.getResult().getToken();
 
@@ -177,21 +210,9 @@ public class FCMPlugin extends CordovaPlugin {
             FirebaseInstanceId.getInstance().getInstanceId().addOnFailureListener(new OnFailureListener() {
                 @Override
                 public void onFailure(@NonNull final Exception e) {
-                    try {
-
-                        JSONObject error = new JSONObject() {
-                            {
-                                put("message", e.getMessage());
-                                put("cause", e.getClass().getName());
-                                put("stacktrace", e.getStackTrace().toString());
-                            }
-                        };
-
-                        Log.e(TAG, "Error retrieving token: ", e);
-                        callback.error(error);
-                    } catch (JSONException jsonErr) {
-                        callback.error(jsonErr.getMessage());
-                    }
+                    String error = "message" + e.getMessage() + ", cause" + e.getClass().getName() + ", stacktrace" + e.getStackTrace().toString();
+                    Log.e(TAG, "Error retrieving token: ", e);
+                    callback.error(error);
                 }
             });
         } catch (Exception e) {
@@ -200,14 +221,14 @@ public class FCMPlugin extends CordovaPlugin {
     }
 
     public void getToken(final CallbackContext callbackContext) {
-		this.getToken(new TokenListeners<String, JSONObject>() {
+		this.getToken(new TokenListeners<String, String>() {
             @Override
             public void success(String message) {
                 callbackContext.success(message);
             }
 
             @Override
-            public void error(JSONObject message) {
+            public void error(String message) {
                 callbackContext.error(message);
             }
         });
